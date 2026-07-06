@@ -103,7 +103,7 @@ function statusBadge(s: string) {
 function downloadJson() {
   const data = JSON.stringify(concerns, null, 2)
   const blob = new Blob([data], { type: 'application/json' })
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'awaj-concerns.json'; a.click()
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'awaz-concerns.json'; a.click()
 }
 </script>
 

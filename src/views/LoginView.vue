@@ -9,7 +9,7 @@
             <circle cx="14" cy="19" r="2" fill="currentColor"/>
           </svg>
         </div>
-        <span>Awaj</span>
+        <span>Awaz</span>
       </div>
       <h1>Welcome back</h1>
       <p>Sign in with your Bangladeshi phone number</p>
@@ -71,7 +71,7 @@ async function handleLogin() {
     toast.show('OTP sent to your phone number!', 'info')
   } else {
     success.value = true
-    toast.show('Welcome to Awaj!', 'success')
+    toast.show('Welcome to Awaz — The Voice of People!', 'success')
     setTimeout(() => router.push('/'), 1500)
   }
   loading.value = false

@@ -44,7 +44,7 @@
     <section class="section features-section">
       <div class="container">
         <div class="section-head">
-          <h2 class="section-title">How Awaj Works</h2>
+          <h2 class="section-title">How Awaz Works</h2>
           <p class="section-sub">We make it easy to voice your concerns and ensure they are heard by the right authorities.</p>
         </div>
         <div class="features-grid">
@@ -101,7 +101,7 @@
           <div class="timeline-text">
             <span class="badge badge-primary">🔍 Radical Transparency</span>
             <h2>Know exactly where your concern stands.</h2>
-            <p>When you submit an issue on Awaj, it doesn't go into a black hole. We provide a clear, public timeline for every concern so you can hold the authorities accountable.</p>
+            <p>When you submit an issue on Awaz, it doesn't go into a black hole. We provide a clear, public timeline for every concern so you can hold the authorities accountable.</p>
             <RouterLink to="/concerns/submit" class="btn btn-primary">Start Tracking →</RouterLink>
           </div>
           <div class="timeline-demo card card-body">
@@ -130,7 +130,7 @@
       <div class="container">
         <div class="section-head">
           <h2 class="section-title">What You Can Report</h2>
-          <p class="section-sub">Awaj covers a wide range of civic concerns — from infrastructure to public safety.</p>
+          <p class="section-sub">Awaz covers a wide range of civic concerns — from infrastructure to public safety.</p>
         </div>
         <div class="categories-grid">
           <RouterLink to="/concerns" class="category-card" v-for="c in categories" :key="c.label">
@@ -147,7 +147,7 @@
         <div class="section-head">
           <div class="faq-icon-wrap">❓</div>
           <h2 class="section-title">Frequently Asked Questions</h2>
-          <p class="section-sub">Everything you need to know about reporting concerns on Awaj.</p>
+          <p class="section-sub">Everything you need to know about reporting concerns on Awaz.</p>
         </div>
         <div class="faq-list">
           <div class="faq-item card" v-for="(faq, i) in faqs" :key="i">
@@ -168,7 +168,7 @@
       <div class="cta-bg" aria-hidden="true"></div>
       <div class="container cta-inner">
         <h2>Ready to improve your neighborhood?</h2>
-        <p>Join thousands of Dhaka citizens who are already using Awaj to report issues and track resolutions.</p>
+        <p>Join thousands of Dhaka citizens who are already using Awaz to report issues and track resolutions.</p>
         <RouterLink to="/login" class="btn btn-primary btn-lg">Sign Up / Log In with Phone →</RouterLink>
       </div>
     </section>
@@ -211,7 +211,7 @@ const categories = [
 ]
 
 const faqs = [
-  { q: 'Is Awaj free to use?', a: 'Yes. Awaj is completely free for all citizens of Dhaka. No subscriptions, no hidden fees.' },
+  { q: 'Is Awaz free to use?', a: 'Yes. Awaz is completely free for all citizens of Dhaka. No subscriptions, no hidden fees.' },
   { q: 'Do I need to create an account?', a: 'You only need a Bangladeshi phone number. We verify your identity with a one-time OTP — no passwords to remember.' },
   { q: 'Who sees my reported concerns?', a: 'All submitted concerns are publicly visible to promote transparency. Your phone number is kept private.' },
   { q: 'How long does it take to get a response?', a: 'Our target is a first official update within 72 hours. You can track real-time progress on every concern.' },

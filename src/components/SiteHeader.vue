@@ -2,15 +2,9 @@
   <header class="site-header" :class="{ scrolled: isScrolled }">
     <div class="container header-inner">
       <!-- Logo -->
-      <RouterLink to="/" class="logo" aria-label="Awaj Home">
-        <div class="logo-icon">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="14" cy="14" r="14" fill="currentColor" opacity=".15"/>
-            <path d="M7 18 Q14 6 21 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-            <circle cx="14" cy="19" r="2" fill="currentColor"/>
-          </svg>
-        </div>
-        <span class="logo-text">Awaj</span>
+      <RouterLink to="/" class="logo" aria-label="Awaz Home">
+        <img src="/logo.png" alt="Awaz Logo" class="logo-img" />
+        <span class="logo-text">Awaz</span>
       </RouterLink>
 
       <!-- Desktop nav -->
@@ -128,12 +122,16 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 .site-header {
   position: sticky;
   top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
   z-index: 100;
   background: color-mix(in srgb, var(--color-bg) 95%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid transparent;
   transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  box-sizing: border-box;
 }
 .site-header.scrolled {
   border-bottom-color: var(--color-border);
@@ -160,7 +158,13 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   transition: opacity var(--transition-fast);
 }
 .logo:hover { opacity: .85; }
-.logo-icon { color: var(--color-primary); }
+.logo-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
 .logo-text { letter-spacing: -.02em; }
 
 /* Desktop nav */

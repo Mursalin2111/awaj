@@ -33,8 +33,13 @@ onMounted(() => appStore.initTheme())
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
 }
-.main-content { flex: 1; }
+.main-content {
+  flex: 1;
+  width: 100%;
+}
 
 /* Page transition */
 .page-enter-active,

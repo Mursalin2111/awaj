@@ -1,11 +1,13 @@
 <p align="center">
-  <img src="public/awaj-icon.svg" alt="Awaj Logo" width="80" />
+  <img src="public/awaj-icon.svg" alt="Awaz Logo" width="80" />
 </p>
 
-<h1 align="center">আওয়াজ — Awaj</h1>
+<h1 align="center">আওয়াজ — Awaz</h1>
+
+<h3 align="center">The Voice of People</h3>
 
 <p align="center">
-  <em>Together, We Decide</em>
+  <em>Together, We Decide.</em>
 </p>
 
 <p align="center">
@@ -19,7 +21,7 @@
 
 ---
 
-**Awaj** (আওয়াজ — meaning *Voice* in Bengali) is a forward-thinking digital civic platform designed to address the evolving needs of **smart governance, community engagement**, and **public accountability** in urban Bangladesh. Built on **Vue 3 + Vite**, it enables Dhaka citizens to report, prioritise, and track urban concerns in Bangla and English, so officials can respond transparently within 72 hours of submission.
+**Awaz — The Voice of People** (আওয়াজ — meaning *Voice* in Bengali) is a forward-thinking digital civic platform designed to address the evolving needs of **smart governance, community engagement**, and **public accountability** in urban Bangladesh. Built on **Vue 3 + Vite**, it enables Dhaka citizens to report, prioritise, and track urban concerns in Bangla and English, so officials can respond transparently within 72 hours of submission.
 
 > **Primary User for MVP:** Citizens — government officials will join in Phase 2 once volume and workflows are validated.
 
@@ -269,5 +271,5 @@ toast.show('Submitted!', 'success')  // 'success' | 'error' | 'info'
 ---
 
 <p align="center">
-  <sub>Built with ❤️ for the citizens of Dhaka — আওয়াজ তুলুন, পরিবর্তন আনুন।</sub>
+  <sub>Built with ❤️ for the citizens of Dhaka — <strong>Awaz — The Voice of People</strong> | আওয়াজ তুলুন, পরিবর্তন আনুন।</sub>
 </p>

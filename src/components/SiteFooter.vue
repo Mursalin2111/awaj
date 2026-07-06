@@ -5,14 +5,8 @@
         <!-- Brand -->
         <div class="footer-brand">
           <RouterLink to="/" class="footer-logo">
-            <div class="logo-icon">
-              <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
-                <circle cx="14" cy="14" r="14" fill="currentColor" opacity=".15"/>
-                <path d="M7 18 Q14 6 21 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-                <circle cx="14" cy="19" r="2" fill="currentColor"/>
-              </svg>
-            </div>
-            <span>Awaj</span>
+            <img src="/logo.png" alt="Awaz Logo" class="footer-logo-img" />
+            <span>Awaz</span>
           </RouterLink>
           <p class="brand-desc">A civic platform for Dhaka residents to report issues, follow progress, and help prioritize what gets fixed first.</p>
           <p class="brand-tagline">আওয়াজ — আপনার কণ্ঠস্বর</p>
@@ -46,7 +40,7 @@
               <li><RouterLink to="/login">Sign In</RouterLink></li>
               <li><RouterLink to="/#faq">Help / FAQ</RouterLink></li>
               <li>
-                <a href="mailto:support@awaj.app" class="email-link">support@awaj.app</a>
+                <a href="mailto:support@awaz.app" class="email-link">support@awaz.app</a>
                 <span class="contact-hint">Questions or feedback? Reach out anytime.</span>
               </li>
             </ul>
@@ -55,7 +49,7 @@
       </div>
 
       <div class="footer-bottom">
-        <p class="copyright">© {{ year }} Awaj. Built for Dhaka. 🇧🇩</p>
+        <p class="copyright">© {{ year }} Awaz — The Voice of People. Built for Dhaka. 🇧🇩</p>
         <div class="footer-bottom-right">
           <span class="legal-links">
             <a href="#">Privacy</a> · <a href="#">Terms</a>
@@ -105,7 +99,13 @@ const year = new Date().getFullYear()
   text-decoration: none;
   margin-bottom: .75rem;
 }
-.logo-icon { color: var(--color-primary); }
+.footer-logo-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
 .brand-desc { font-size: .875rem; color: var(--color-text-muted); line-height: 1.6; max-width: 220px; }
 .brand-tagline { font-size: .8rem; color: var(--color-text-subtle); margin-top: .5rem; font-style: italic; }
 
