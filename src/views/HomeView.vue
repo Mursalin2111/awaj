@@ -169,7 +169,7 @@
       <div class="container cta-inner">
         <h2>Ready to improve your neighborhood?</h2>
         <p>Join thousands of Dhaka citizens who are already using Awaz to report issues and track resolutions.</p>
-        <RouterLink to="/login" class="btn btn-primary btn-lg">Sign Up / Log In with Phone →</RouterLink>
+        <RouterLink to="/login" class="btn btn-primary btn-lg">Sign Up / Log In with Email →</RouterLink>
       </div>
     </section>
 
@@ -212,10 +212,10 @@ const categories = [
 
 const faqs = [
   { q: 'Is Awaz free to use?', a: 'Yes. Awaz is completely free for all citizens of Dhaka. No subscriptions, no hidden fees.' },
-  { q: 'Do I need to create an account?', a: 'You only need a Bangladeshi phone number. We verify your identity with a one-time OTP — no passwords to remember.' },
-  { q: 'Who sees my reported concerns?', a: 'All submitted concerns are publicly visible to promote transparency. Your phone number is kept private.' },
+  { q: 'Do I need to create an account?', a: 'You only need an email address. We verify your identity with a one-time code sent to your email — no passwords to remember.' },
+  { q: 'Who sees my reported concerns?', a: 'All submitted concerns are publicly visible to promote transparency. Your email address is kept private.' },
   { q: 'How long does it take to get a response?', a: 'Our target is a first official update within 72 hours. You can track real-time progress on every concern.' },
-  { q: 'Can I report concerns anonymously?', a: 'Currently, all reports are linked to a verified phone number to prevent abuse and ensure accountability.' },
+  { q: 'Can I report concerns anonymously?', a: 'Currently, all reports are linked to a verified email to prevent abuse and ensure accountability.' },
 ]
 </script>
 
@@ -225,14 +225,29 @@ const faqs = [
   position: relative;
   padding-block: 5rem 4rem;
   overflow: hidden;
+  background-image:
+    linear-gradient(to bottom, rgba(10, 15, 26, 0.72) 0%, rgba(10, 15, 26, 0.88) 70%, var(--color-bg) 100%),
+    url('/bg_dhaka_city.png');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
 }
-@media (min-width: 768px) { .hero { padding-block: 7rem 5rem; } }
+@media (min-width: 768px) { .hero { padding-block: 7rem 5.5rem; } }
 
 .hero-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 70% 60% at 50% 0%, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 70%);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, var(--color-primary) 40%, transparent), transparent 70%),
+    radial-gradient(circle 500px at 20% 20%, color-mix(in srgb, var(--color-primary) 25%, transparent), transparent 70%),
+    radial-gradient(circle 400px at 80% 30%, color-mix(in srgb, var(--color-accent) 20%, transparent), transparent 70%);
   pointer-events: none;
+  animation: heroPulse 8s infinite alternate ease-in-out;
+  mix-blend-mode: screen;
+}
+@keyframes heroPulse {
+  0% { opacity: 0.8; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.05); }
 }
 .hero-inner { text-align: center; position: relative; z-index: 1; }
 
@@ -271,16 +286,23 @@ const faqs = [
   justify-content: center;
 }
 .stat-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 75%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid color-mix(in srgb, var(--color-border) 70%, rgba(255, 255, 255, 0.15));
   border-radius: var(--radius-xl);
-  padding: 1rem 1.5rem;
+  padding: 1.1rem 1.6rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: .3rem;
   min-width: 140px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+.stat-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--color-primary);
 }
 .stat-num { font-size: 1.75rem; font-weight: 800; color: var(--color-primary); letter-spacing: -.02em; }
 .stat-label { font-size: .75rem; color: var(--color-text-muted); text-align: center; line-height: 1.4; }

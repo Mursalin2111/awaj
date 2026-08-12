@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import api from '../services/api'
 
 export type Theme = 'light' | 'dark'
 export type Locale = 'en' | 'bn'
@@ -32,9 +33,10 @@ export const useAppStore = defineStore('app', () => {
   return { theme, locale, isDark, toggleTheme, setLocale, initTheme }
 })
 
-// Concerns mock store
+// Concerns store — now fetches from API
 export interface Concern {
   id: string
+  _id?: string
   title: string
   description: string
   category: string
@@ -44,116 +46,14 @@ export interface Concern {
   location: string
   createdAt: string
   author: string
+  authorName: string
   photos: string[]
   updates: Array<{ date: string; note: string; status: string }>
 }
 
 export const useConcernsStore = defineStore('concerns', () => {
-  const concerns = ref<Concern[]>([
-    {
-      id: '1',
-      title: 'Broken streetlight on Mirpur 10',
-      description: 'The main streetlight at the intersection of Mirpur 10 circle has been broken for over a month. This poses a safety hazard at night especially for pedestrians and cyclists.',
-      category: 'Streetlights',
-      status: 'under_review',
-      votes: 142,
-      voted: false,
-      location: 'Mirpur 10, Dhaka',
-      createdAt: '2026-06-01',
-      author: 'Rahim Uddin',
-      photos: [],
-      updates: [
-        { date: '2026-06-05', note: 'Assigned to City Corporation Ward 12 desk.', status: 'under_review' },
-        { date: '2026-06-01', note: 'Concern reported by verified citizen.', status: 'submitted' },
-      ],
-    },
-    {
-      id: '2',
-      title: 'Large pothole near Dhanmondi Lake',
-      description: 'There is a massive pothole on Rd-27, near Dhanmondi Lake entrance. Several motorcycles have already been damaged. The pothole is about 1 meter wide and very deep.',
-      category: 'Roads & Potholes',
-      status: 'resolved',
-      votes: 289,
-      voted: false,
-      location: 'Dhanmondi Road 27, Dhaka',
-      createdAt: '2026-05-15',
-      author: 'Salma Begum',
-      photos: [],
-      updates: [
-        { date: '2026-05-28', note: 'Pothole was patched by the road maintenance team.', status: 'resolved' },
-        { date: '2026-05-18', note: 'Assigned to DNCC maintenance unit.', status: 'under_review' },
-        { date: '2026-05-15', note: 'Concern reported by verified citizen.', status: 'submitted' },
-      ],
-    },
-    {
-      id: '3',
-      title: 'Garbage overflow at Banani market',
-      description: 'The waste bins near Banani market are overflowing and garbage has spilled onto the sidewalk. This is creating unsanitary conditions and a terrible smell.',
-      category: 'Waste & Sanitation',
-      status: 'submitted',
-      votes: 87,
-      voted: false,
-      location: 'Banani Market, Dhaka',
-      createdAt: '2026-06-10',
-      author: 'Kamal Hossain',
-      photos: [],
-      updates: [
-        { date: '2026-06-10', note: 'Concern reported by verified citizen.', status: 'submitted' },
-      ],
-    },
-    {
-      id: '4',
-      title: 'Water logging in Gulshan 2 after rain',
-      description: 'Every time it rains, Gulshan Avenue near Gulshan 2 circle gets severely waterlogged. The drainage system appears completely blocked. Cars and rickshaws get stuck.',
-      category: 'Water & Drainage',
-      status: 'under_review',
-      votes: 203,
-      voted: false,
-      location: 'Gulshan 2 Circle, Dhaka',
-      createdAt: '2026-05-20',
-      author: 'Nasreen Akter',
-      photos: [],
-      updates: [
-        { date: '2026-05-25', note: 'WASA engineers scheduled for site inspection.', status: 'under_review' },
-        { date: '2026-05-20', note: 'Concern reported by verified citizen.', status: 'submitted' },
-      ],
-    },
-    {
-      id: '5',
-      title: 'Illegal parking blocking emergency exit',
-      description: 'Vehicles are being illegally parked in front of the emergency exit of Dhaka Medical College Hospital. Ambulances cannot pass during peak hours.',
-      category: 'Public Safety',
-      status: 'resolved',
-      votes: 175,
-      voted: false,
-      location: 'Dhaka Medical College, Dhaka',
-      createdAt: '2026-05-10',
-      author: 'Dr. Farhan Ali',
-      photos: [],
-      updates: [
-        { date: '2026-05-17', note: 'Police deployed. No-parking signs installed.', status: 'resolved' },
-        { date: '2026-05-12', note: 'Escalated to traffic police authority.', status: 'under_review' },
-        { date: '2026-05-10', note: 'Concern reported by verified citizen.', status: 'submitted' },
-      ],
-    },
-    {
-      id: '6',
-      title: 'Diseased trees in Ramna Park need attention',
-      description: 'Several large trees in Ramna Park appear to have disease affecting their branches. Dead branches have been falling. Risk of injury to park visitors.',
-      category: 'Parks & Spaces',
-      status: 'submitted',
-      votes: 64,
-      voted: false,
-      location: 'Ramna Park, Dhaka',
-      createdAt: '2026-06-08',
-      author: 'Tahmina Islam',
-      photos: [],
-      updates: [
-        { date: '2026-06-08', note: 'Concern reported by verified citizen.', status: 'submitted' },
-      ],
-    },
-  ])
-
+  const concerns = ref<Concern[]>([])
+  const loading = ref(false)
   const sortBy = ref<'recent' | 'votes'>('votes')
   const searchQuery = ref('')
   const filterStatus = ref<string>('all')
@@ -172,23 +72,62 @@ export const useConcernsStore = defineStore('concerns', () => {
     )
   })
 
-  function toggleVote(id: string) {
-    const c = concerns.value.find(c => c.id === id)
-    if (c) {
-      c.voted = !c.voted
-      c.votes += c.voted ? 1 : -1
+  async function fetchConcerns() {
+    loading.value = true
+    try {
+      const res = await api.get('/concerns', {
+        params: {
+          search: searchQuery.value || undefined,
+          status: filterStatus.value !== 'all' ? filterStatus.value : undefined,
+          sort: sortBy.value,
+        },
+      })
+      concerns.value = res.data.map((c: any) => ({
+        ...c,
+        id: c._id || c.id,
+        author: c.authorName || 'Anonymous',
+      }))
+    } catch (error) {
+      console.error('Failed to fetch concerns:', error)
+    } finally {
+      loading.value = false
     }
   }
 
-  function addConcern(concern: Omit<Concern, 'id' | 'votes' | 'voted' | 'updates'>) {
-    concerns.value.unshift({
-      ...concern,
-      id: Date.now().toString(),
-      votes: 0,
-      voted: false,
-      updates: [{ date: new Date().toISOString().split('T')[0], note: 'Concern reported by verified citizen.', status: 'submitted' }],
-    })
+  async function toggleVote(id: string) {
+    try {
+      const res = await api.post(`/concerns/${id}/vote`)
+      const c = concerns.value.find(c => c.id === id || c._id === id)
+      if (c) {
+        c.voted = res.data.voted
+        c.votes = res.data.votes
+      }
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        // User not logged in — handle in UI
+        throw new Error('LOGIN_REQUIRED')
+      }
+      console.error('Vote error:', error)
+    }
   }
 
-  return { concerns, filtered, sortBy, searchQuery, filterStatus, toggleVote, addConcern }
+  async function addConcern(concern: { title: string; description: string; category: string; location: string; photos?: string[] }) {
+    try {
+      const res = await api.post('/concerns', concern)
+      concerns.value.unshift({
+        ...res.data,
+        id: res.data._id || res.data.id,
+        author: res.data.authorName || 'You',
+        voted: false,
+      })
+      return res.data
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        throw new Error('LOGIN_REQUIRED')
+      }
+      throw error
+    }
+  }
+
+  return { concerns, loading, filtered, sortBy, searchQuery, filterStatus, fetchConcerns, toggleVote, addConcern }
 })

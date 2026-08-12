@@ -20,8 +20,11 @@
           >
             <div class="msg-avatar">{{ msg.role === 'user' ? '👤' : '🤖' }}</div>
             <div class="msg-bubble">
-              <p>{{ msg.text }}</p>
+              <p style="white-space: pre-line;">{{ msg.text }}</p>
               <span v-if="msg.citation" class="citation">📜 {{ msg.citation }}</span>
+              <RouterLink v-if="msg.actionLink" :to="msg.actionLink" class="btn btn-primary btn-sm chat-action-btn">
+                Open Page →
+              </RouterLink>
             </div>
           </div>
 
@@ -81,8 +84,15 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
+import { RouterLink } from 'vue-router'
+import api from '../services/api'
 
-interface Message { role: 'user' | 'bot'; text: string; citation?: string }
+interface Message {
+  role: 'user' | 'bot'
+  text: string
+  citation?: string
+  actionLink?: string
+}
 
 const input = ref('')
 const thinking = ref(false)
@@ -90,129 +100,74 @@ const messagesEl = ref<HTMLElement>()
 const messages = ref<Message[]>([
   {
     role: 'bot',
-    text: 'আমাকে বাংলাদেশ সংবিধান সম্পর্কে জিজ্ঞেস করুন। Ask me about your rights under the Bangladesh Constitution — I\'ll answer with inline citations like [Article 33].',
-    citation: 'Constitution of Bangladesh, Part III — Fundamental Rights'
+    text: 'আসসালামু আলাইকুম! Ask me anything about your Fundamental Rights under the Bangladesh Constitution or how to use Awaz in real-time!',
+    citation: 'Awaz Real-Time Constitutional & Civic Assistant'
   }
 ])
 
 const quickPrompts = [
-  'What are my fundamental rights?',
-  'Article 32 — Right to life',
-  'Can police detain me without reason?',
-  'Right to free speech in Bangladesh'
+  '🌤️ Weather in Dhaka today',
+  '🚇 Tell me about Dhaka Metro Rail',
+  '⚖️ What are my fundamental rights?',
+  '📋 How many concerns are reported on Awaz?',
+  '🔒 Who can see my reported concerns?'
 ]
-
-// Each entry has a list of keywords and a response.
-// The matcher scores every entry and picks the best match.
-const knowledgeBase: { keywords: string[]; text: string; citation: string }[] = [
-  {
-    keywords: ['fundamental right', 'basic right', 'what rights', 'my rights', 'all rights', 'rights do i have'],
-    text: 'The fundamental rights guaranteed under Part III of the Bangladesh Constitution include:\n\n• Right to equality before law [Art 27]\n• Protection against discrimination [Art 28]\n• Right to life and personal liberty [Art 32]\n• Protection against arbitrary arrest and detention [Art 33]\n• Freedom of thought, conscience and speech [Art 39]\n• Right to assemble peacefully [Art 37]\n• Right to form associations [Art 38]',
-    citation: 'Constitution of Bangladesh, Part III (Articles 27–44) — Fundamental Rights'
-  },
-  {
-    keywords: ['article 27', 'equality', 'equal before law', 'equal protection'],
-    text: 'Under Article 27 of the Bangladesh Constitution, all citizens are equal before law and are entitled to equal protection of law. The State shall not discriminate against any citizen on grounds of religion, race, caste, sex, or place of birth.',
-    citation: 'Constitution of Bangladesh, Article 27 — Equality before law'
-  },
-  {
-    keywords: ['article 28', 'discrimination', 'discriminate', 'gender', 'religion', 'caste', 'race'],
-    text: 'Article 28 prohibits the State from discriminating against any citizen on grounds of religion, race, caste, sex, or place of birth. Women shall have equal rights with men in all spheres of the State and public life.',
-    citation: 'Constitution of Bangladesh, Article 28 — Discrimination on grounds of religion, etc.'
-  },
-  {
-    keywords: ['article 32', 'right to life', 'life', 'personal liberty', 'liberty'],
-    text: 'Article 32 guarantees that no person shall be deprived of life or personal liberty save in accordance with law. This is one of the most fundamental protections — the state cannot arbitrarily take away a person\'s life or freedom without due legal process.',
-    citation: 'Constitution of Bangladesh, Article 32 — Protection of right to life and personal liberty'
-  },
-  {
-    keywords: ['article 33', 'arrest', 'detain', 'detention', 'police', 'custody', 'magistrate', 'lawyer', 'legal practitioner'],
-    text: 'Under Article 33, a person who is arrested:\n\n• Must be informed of the grounds of arrest immediately\n• Cannot be denied the right to consult and be defended by a lawyer of their choice\n• Must be produced before the nearest magistrate within 24 hours of arrest\n• Shall not be detained beyond this period without a magistrate\'s order\n\nPolice cannot detain you arbitrarily without stating a reason.',
-    citation: 'Constitution of Bangladesh, Article 33 — Safeguards as to arrest and detention'
-  },
-  {
-    keywords: ['article 39', 'free speech', 'freedom of speech', 'expression', 'press', 'media', 'speech', 'thought', 'conscience'],
-    text: 'Article 39 guarantees freedom of thought, conscience and speech. Every citizen has the right to freedom of speech and expression, and freedom of the press — subject to reasonable restrictions for national security, public order, decency, morality, contempt of court, defamation, or incitement to an offence.',
-    citation: 'Constitution of Bangladesh, Article 39 — Freedom of thought, conscience and speech'
-  },
-  {
-    keywords: ['article 37', 'assemble', 'assembly', 'gathering', 'protest', 'demonstration', 'rally'],
-    text: 'Article 37 guarantees every citizen the right to assemble and participate in public meetings and processions peacefully and without arms, subject to any reasonable restrictions imposed by law in the interests of public order or public health.',
-    citation: 'Constitution of Bangladesh, Article 37 — Freedom of assembly'
-  },
-  {
-    keywords: ['article 38', 'association', 'union', 'organization', 'form association', 'join'],
-    text: 'Article 38 gives citizens the right to form associations or unions, subject to any reasonable restrictions imposed by law in the interests of morality or public order. No citizen can be compelled to join any association.',
-    citation: 'Constitution of Bangladesh, Article 38 — Freedom of association'
-  },
-  {
-    keywords: ['article 31', 'protection of law', 'right to protection', 'rule of law'],
-    text: 'Article 31 declares that it is the right of every citizen to enjoy the protection of the law, and to be treated in accordance with law. In particular, no action detrimental to the life, liberty, body, reputation or property of any person shall be taken except in accordance with law.',
-    citation: 'Constitution of Bangladesh, Article 31 — Right to protection of law'
-  },
-  {
-    keywords: ['report concern', 'submit issue', 'report issue', 'how to report', 'report problem', 'file complaint'],
-    text: 'On Awaz, you can report a civic concern in 3 simple steps:\n\n1. 📍 Go to "Report a Concern" and drop a GPS pin on the map\n2. ✍️ Describe the issue clearly, choose a category, and attach a photo if available\n3. 🔍 Track the real-time status — officials are expected to respond within 72 hours\n\nAll submitted concerns are public and trackable by the community.',
-    citation: 'Awaz — Civic Reporting Platform Guidelines'
-  },
-  {
-    keywords: ['right to vote', 'vote', 'election', 'electoral', 'article 122'],
-    text: 'Article 122 of the Bangladesh Constitution guarantees every citizen aged 18 or above the right to vote in elections to Parliament, provided they are not declared by law to be ineligible. This right is a cornerstone of democratic participation.',
-    citation: 'Constitution of Bangladesh, Article 122 — Qualifications for voters'
-  },
-  {
-    keywords: ['education', 'right to education', 'article 17', 'school', 'primary education'],
-    text: 'Article 17 of the Bangladesh Constitution obligates the State to adopt effective measures to establish a uniform, mass-oriented and universal system of education and to extend free and compulsory education to all children to such stage as may be determined by law.',
-    citation: 'Constitution of Bangladesh, Article 17 — Free and compulsory education'
-  },
-  {
-    keywords: ['health', 'right to health', 'article 18', 'medical', 'healthcare'],
-    text: 'Article 18 places an obligation on the State to regard the raising of the level of nutrition and the improvement of public health as among its primary duties. The State shall also endeavour to prevent the consumption of alcoholic and other intoxicating drinks and of drugs which are injurious to health.',
-    citation: 'Constitution of Bangladesh, Article 18 — Public health and morality'
-  },
-]
-
-function findBestResponse(userText: string): { text: string; citation: string } {
-  const lower = userText.toLowerCase()
-  let bestScore = 0
-  let bestIdx = -1
-
-  knowledgeBase.forEach((entry, idx) => {
-    let score = 0
-    entry.keywords.forEach(kw => {
-      if (lower.includes(kw)) score++
-    })
-    if (score > bestScore) {
-      bestScore = score
-      bestIdx = idx
-    }
-  })
-
-  if (bestIdx >= 0) return knowledgeBase[bestIdx]
-
-  // Fallback
-  return {
-    text: 'I can answer questions about your rights under the Bangladesh Constitution — such as freedom of speech, right to life, protection from unlawful arrest, right to equality, and more. You can also ask me about how to report a civic concern on Awaz. Try one of the quick prompts below to get started!',
-    citation: 'Awaz — Constitutional Rights Chatbot'
-  }
-}
 
 async function sendMessage() {
   const text = input.value.trim()
   if (!text || thinking.value) return
+
+  // Push user message
   messages.value.push({ role: 'user', text })
   input.value = ''
   thinking.value = true
   await nextTick()
   scrollToBottom()
 
-  await new Promise(r => setTimeout(r, 1200))
+  try {
+    // Real-time backend query
+    const res = await api.post('/chatbot/ask', { question: text })
+    const fullAnswer = res.data.answer || 'No response available.'
+    const citation = res.data.citation
+    const actionLink = res.data.actionLink
 
-  const resp = findBestResponse(text)
-  messages.value.push({ role: 'bot', text: resp.text, citation: resp.citation })
-  thinking.value = false
-  await nextTick()
-  scrollToBottom()
+    thinking.value = false
+
+    // Push bot message container
+    const botMsgIndex = messages.value.length
+    messages.value.push({
+      role: 'bot',
+      text: '',
+      citation,
+      actionLink
+    })
+
+    // Real-time streaming character typing effect
+    let charIdx = 0
+    const chunkSize = 3
+    const interval = setInterval(() => {
+      if (charIdx < fullAnswer.length) {
+        messages.value[botMsgIndex].text += fullAnswer.slice(charIdx, charIdx + chunkSize)
+        charIdx += chunkSize
+        scrollToBottom()
+      } else {
+        messages.value[botMsgIndex].text = fullAnswer
+        clearInterval(interval)
+        scrollToBottom()
+      }
+    }, 15)
+
+  } catch (err) {
+    console.error('Chatbot error:', err)
+    thinking.value = false
+    messages.value.push({
+      role: 'bot',
+      text: 'Sorry, I had trouble connecting to the real-time assistant. Please check your internet connection.',
+      citation: 'Awaz Network Diagnostic'
+    })
+    await nextTick()
+    scrollToBottom()
+  }
 }
 
 function scrollToBottom() {
@@ -336,6 +291,12 @@ function usePrompt(q: string) {
   margin-top: .5rem;
   opacity: .65;
   font-style: italic;
+}
+.chat-action-btn {
+  margin-top: .6rem;
+  display: inline-flex;
+  font-size: .75rem;
+  padding: .3rem .75rem;
 }
 
 /* Thinking dots */

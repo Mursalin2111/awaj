@@ -10,25 +10,28 @@
     <div class="container page-body">
       <div class="research-layout">
         <div class="research-main">
-          <input v-model="search" class="form-input" type="search" placeholder="Search by title or ministry…" id="search-research" />
-          <p class="results-count">{{ filtered.length }} open problem{{ filtered.length !== 1 ? 's' : '' }}</p>
-          <div class="research-list">
-            <div class="research-card card card-body" v-for="r in filtered" :key="r.id">
-              <div class="res-header">
-                <h3>{{ r.title }}</h3>
-                <span class="grant-badge">{{ r.grant }}</span>
-              </div>
-              <p class="res-ministry">🏛️ {{ r.ministry }}</p>
-              <p class="res-desc">{{ r.desc }}</p>
-              <div class="res-footer">
-                <span class="res-applicants">👥 {{ r.applicants }} applicants</span>
-                <div class="res-tags">
-                  <span class="badge badge-neutral" v-for="t in r.tags" :key="t">{{ t }}</span>
+          <input v-model="search" class="form-input" type="search" placeholder="Search by title or ministry…" id="search-research" @input="debouncedFetch" />
+          <div v-if="loading" class="loading-state"><span class="spinner"></span><p>Loading...</p></div>
+          <template v-else>
+            <p class="results-count">{{ problems.length }} open problem{{ problems.length !== 1 ? 's' : '' }}</p>
+            <div class="research-list">
+              <div class="research-card card card-body" v-for="r in problems" :key="r.id">
+                <div class="res-header">
+                  <h3>{{ r.title }}</h3>
+                  <span class="grant-badge">{{ r.grant }}</span>
                 </div>
-                <button class="btn btn-primary btn-sm">Apply Now</button>
+                <p class="res-ministry">🏛️ {{ r.ministry }}</p>
+                <p class="res-desc">{{ r.desc }}</p>
+                <div class="res-footer">
+                  <span class="res-applicants">👥 {{ r.applicants }} applicants</span>
+                  <div class="res-tags">
+                    <span class="badge badge-neutral" v-for="t in r.tags" :key="t">{{ t }}</span>
+                  </div>
+                  <button class="btn btn-primary btn-sm">Apply Now</button>
+                </div>
               </div>
             </div>
-          </div>
+          </template>
         </div>
         <aside class="research-sidebar">
           <div class="card card-body sidebar-info">
@@ -56,15 +59,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
+import api from '../services/api'
+
 const search = ref('')
-const problems = [
-  { id: 1, title: 'AI-Powered Flood Prediction for Dhaka Urban Areas', ministry: 'Ministry of Water Resources', grant: '৳12L', applicants: 7, desc: 'Develop a machine learning model using satellite imagery and sensor data to predict urban flood events in Dhaka 48 hours in advance.', tags: ['AI/ML', 'Climate', 'Urban'] },
-  { id: 2, title: 'Air Quality Monitoring Network Design', ministry: 'Ministry of Environment', grant: '৳8.5L', applicants: 4, desc: 'Design and deploy a low-cost IoT-based air quality monitoring network for 20 strategic locations across Dhaka.', tags: ['IoT', 'Environment', 'Health'] },
-  { id: 3, title: 'Solid Waste Management Optimization in Dhaka', ministry: 'DNCC', grant: '৳15L', applicants: 11, desc: 'Develop a route optimization algorithm and real-time tracking system for garbage collection vehicles in Dhaka city corporation areas.', tags: ['Logistics', 'Smart City'] },
-  { id: 4, title: 'Pothole Detection via Computer Vision', ministry: 'Ministry of Road Transport', grant: '৳6L', applicants: 9, desc: 'Build a real-time pothole detection system using smartphone cameras and computer vision for automatic reporting and prioritization.', tags: ['Computer Vision', 'Infrastructure'] },
-]
-const filtered = computed(() => !search.value ? problems : problems.filter(p => p.title.toLowerCase().includes(search.value.toLowerCase()) || p.ministry.toLowerCase().includes(search.value.toLowerCase())))
+const problems = ref<any[]>([])
+const loading = ref(true)
+
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedFetch() {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => fetchResearch(), 300)
+}
+
+async function fetchResearch() {
+  loading.value = true
+  try {
+    const res = await api.get('/research', { params: { search: search.value || undefined } })
+    problems.value = res.data
+  } catch { problems.value = [] }
+  finally { loading.value = false }
+}
+
+onMounted(() => fetchResearch())
 </script>
 
 <style scoped>
@@ -77,7 +94,6 @@ const filtered = computed(() => !search.value ? problems : problems.filter(p => 
 .research-main { display: flex; flex-direction: column; gap: 1.25rem; }
 .results-count { font-size: .85rem; color: var(--color-text-muted); }
 .research-list { display: flex; flex-direction: column; gap: 1rem; }
-.research-card { }
 .res-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: .5rem; }
 .res-header h3 { font-size: 1rem; font-weight: 700; }
 .grant-badge { background: color-mix(in srgb, var(--color-success) 12%, transparent); color: var(--color-success); padding: .25rem .625rem; border-radius: var(--radius-full); font-size: .8rem; font-weight: 700; white-space: nowrap; }
@@ -90,4 +106,6 @@ const filtered = computed(() => !search.value ? problems : problems.filter(p => 
 .sidebar-info h3 { font-size: .95rem; font-weight: 700; margin-bottom: .75rem; }
 .sidebar-info ul { padding-left: 1.1rem; display: flex; flex-direction: column; gap: .5rem; }
 .sidebar-info li { font-size: .85rem; color: var(--color-text-muted); line-height: 1.5; }
+.loading-state { text-align: center; padding: 3rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.loading-state p { color: var(--color-text-muted); }
 </style>

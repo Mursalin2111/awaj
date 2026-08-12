@@ -2,8 +2,18 @@
   <div class="concerns-page">
     <div class="concerns-hero">
       <div class="container">
-        <h1>Citizen Concerns</h1>
-        <p>Browse and upvote issues reported by verified citizens across Dhaka.</p>
+        <template v-if="authStore.user?.role === 'authority'">
+          <h1>🏛️ Authority Portal — Citizen Concerns</h1>
+          <p>Reviewing all citizen reports submitted across Dhaka. Update statuses and manage official responses.</p>
+        </template>
+        <template v-else-if="authStore.isLoggedIn">
+          <h1>📋 My Reported Concerns</h1>
+          <p>Private & secure — only you can see your submitted reports. Only municipal authorities can view all reports.</p>
+        </template>
+        <template v-else>
+          <h1>🔒 Citizen Concerns Portal</h1>
+          <p>Please log in to submit or view your private concern reports.</p>
+        </template>
       </div>
     </div>
 
@@ -18,10 +28,11 @@
             type="search"
             placeholder="Search concerns..."
             id="search-concerns"
+            @input="debouncedFetch"
           />
         </div>
         <div class="toolbar-right">
-          <select v-model="store.filterStatus" class="form-select filter-select" id="filter-status">
+          <select v-model="store.filterStatus" class="form-select filter-select" id="filter-status" @change="store.fetchConcerns()">
             <option value="all">All Status</option>
             <option value="submitted">Submitted</option>
             <option value="under_review">Under Review</option>
@@ -29,10 +40,10 @@
             <option value="rejected">Rejected</option>
           </select>
           <div class="sort-btns">
-            <button :class="['sort-btn', { active: store.sortBy === 'votes' }]" @click="store.sortBy = 'votes'">
+            <button :class="['sort-btn', { active: store.sortBy === 'votes' }]" @click="store.sortBy = 'votes'; store.fetchConcerns()">
               👍 Most Voted
             </button>
-            <button :class="['sort-btn', { active: store.sortBy === 'recent' }]" @click="store.sortBy = 'recent'">
+            <button :class="['sort-btn', { active: store.sortBy === 'recent' }]" @click="store.sortBy = 'recent'; store.fetchConcerns()">
               🕑 Recent
             </button>
           </div>
@@ -40,11 +51,17 @@
         </div>
       </div>
 
+      <!-- Loading -->
+      <div v-if="store.loading" class="loading-state">
+        <span class="spinner"></span>
+        <p>Loading concerns...</p>
+      </div>
+
       <!-- Results count -->
-      <p class="results-count">{{ store.filtered.length }} concern{{ store.filtered.length !== 1 ? 's' : '' }} found</p>
+      <p v-else class="results-count">{{ store.filtered.length }} concern{{ store.filtered.length !== 1 ? 's' : '' }} found</p>
 
       <!-- Cards -->
-      <div class="concerns-grid" v-if="store.filtered.length">
+      <div class="concerns-grid" v-if="!store.loading && store.filtered.length">
         <TransitionGroup name="list-anim">
           <div class="concern-card card" v-for="c in store.filtered" :key="c.id">
             <div class="concern-card-body">
@@ -54,21 +71,25 @@
                 <span class="badge badge-neutral">{{ c.category }}</span>
               </div>
               <RouterLink :to="`/concerns/${c.id}`" class="concern-title">{{ c.title }}</RouterLink>
+              <div v-if="c.photos && c.photos.length > 0" class="card-photo-preview">
+                <img :src="c.photos[0]" alt="Concern thumbnail" />
+                <span v-if="c.photos.length > 1" class="photo-count-badge">📷 +{{ c.photos.length - 1 }}</span>
+              </div>
               <p class="concern-desc">{{ c.description }}</p>
               <div class="concern-meta-bottom">
                 <span class="meta-item">📍 {{ c.location }}</span>
-                <span class="meta-item">👤 {{ c.author }}</span>
+                <span class="meta-item">👤 {{ c.authorName || c.author }}</span>
                 <span class="meta-item">📅 {{ c.createdAt }}</span>
               </div>
             </div>
             <div class="concern-card-actions">
               <button
                 :class="['vote-btn', { voted: c.voted }]"
-                @click="store.toggleVote(c.id)"
+                @click="handleVote(c.id)"
                 :aria-label="c.voted ? 'Remove upvote' : 'Upvote this concern'"
                 :id="`vote-${c.id}`"
               >
-                <span class="vote-icon">{{ c.voted ? '👍' : '👍' }}</span>
+                <span class="vote-icon">👍</span>
                 <span class="vote-count">{{ c.votes }}</span>
               </button>
               <RouterLink :to="`/concerns/${c.id}`" class="btn btn-ghost btn-sm">View →</RouterLink>
@@ -76,20 +97,54 @@
           </div>
         </TransitionGroup>
       </div>
-      <div class="empty-state" v-else>
-        <span>🔍</span>
-        <p>No concerns found. Try adjusting your filters.</p>
-        <RouterLink to="/concerns/submit" class="btn btn-primary">Be the first to report</RouterLink>
+      <div class="empty-state" v-else-if="!store.loading">
+        <template v-if="!authStore.isLoggedIn">
+          <span>🔒</span>
+          <p>Please log in to submit or view your reported concerns.</p>
+          <RouterLink to="/login" class="btn btn-primary">Log in to Awaz</RouterLink>
+        </template>
+        <template v-else-if="authStore.user?.role === 'authority'">
+          <span>🏛️</span>
+          <p>No citizen concerns found matching your criteria.</p>
+        </template>
+        <template v-else>
+          <span>📋</span>
+          <p>You haven't submitted any concerns yet. Your reports remain strictly private between you and municipal authorities.</p>
+          <RouterLink to="/concerns/submit" class="btn btn-primary">+ Report a Concern</RouterLink>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { onMounted } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
 import { useConcernsStore } from '../stores'
+import { useAuthStore } from '../stores/auth'
+import { useToastStore } from '../stores/toast'
 
 const store = useConcernsStore()
+const authStore = useAuthStore()
+const toast = useToastStore()
+const router = useRouter()
+
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedFetch() {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => store.fetchConcerns(), 300)
+}
+
+async function handleVote(id: string) {
+  try {
+    await store.toggleVote(id)
+  } catch (error: any) {
+    if (error.message === 'LOGIN_REQUIRED') {
+      toast.show('Please log in to vote', 'info')
+      router.push('/login')
+    }
+  }
+}
 
 function formatStatus(s: string) {
   return { submitted: 'Submitted', under_review: 'Under Review', resolved: 'Resolved', rejected: 'Rejected' }[s] ?? s
@@ -97,6 +152,8 @@ function formatStatus(s: string) {
 function statusBadge(s: string) {
   return { submitted: 'badge-info', under_review: 'badge-warning', resolved: 'badge-success', rejected: 'badge-danger' }[s] ?? 'badge-neutral'
 }
+
+onMounted(() => store.fetchConcerns())
 </script>
 
 <style scoped>
@@ -151,6 +208,9 @@ function statusBadge(s: string) {
 
 .results-count { font-size: .85rem; color: var(--color-text-muted); margin-bottom: 1.25rem; }
 
+.loading-state { text-align: center; padding: 3rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.loading-state p { color: var(--color-text-muted); }
+
 /* Grid */
 .concerns-grid { display: grid; gap: 1.25rem; }
 @media (min-width: 768px) { .concerns-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -176,6 +236,32 @@ function statusBadge(s: string) {
   transition: color var(--transition-fast);
 }
 .concern-title:hover { color: var(--color-primary); }
+.card-photo-preview {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-block: .5rem .75rem;
+  border: 1px solid var(--color-border);
+}
+.card-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.photo-count-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(4px);
+}
 .concern-desc { font-size: .85rem; color: var(--color-text-muted); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .concern-meta-bottom { display: flex; flex-wrap: wrap; gap: .625rem; margin-top: .75rem; }
 .meta-item { font-size: .75rem; color: var(--color-text-subtle); }

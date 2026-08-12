@@ -15,15 +15,16 @@
           <button :class="['tab-btn', { active: tab === 'discussions' }]" @click="tab='discussions'">Discussions</button>
         </div>
       </div>
-      <div class="proposals-list">
+      <div v-if="loading" class="loading-state"><span class="spinner"></span><p>Loading proposals...</p></div>
+      <div class="proposals-list" v-else>
         <div class="card card-body proposal-item" v-for="p in proposals" :key="p.id">
           <div class="proposal-header">
             <div>
               <h3>{{ p.title }}</h3>
-              <p class="proposal-meta">by {{ p.author }} · {{ p.date }} · {{ p.comments }} comments</p>
+              <p class="proposal-meta">by {{ p.authorName }} · {{ p.date }} · {{ p.comments }} comments</p>
             </div>
             <div class="proposal-votes">
-              <button class="vote-pill">▲ {{ p.votes }}</button>
+              <button class="vote-pill" @click="handleVote(p)">▲ {{ p.votes }}</button>
             </div>
           </div>
           <p class="proposal-desc">{{ p.desc }}</p>
@@ -37,14 +38,42 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { useToastStore } from '../stores/toast'
+import api from '../services/api'
+
 const tab = ref('proposals')
-const proposals = [
-  { id: 1, title: 'Install solar street lights on Mirpur roads', author: 'Rahim', date: '2026-06-10', votes: 312, comments: 24, desc: 'Proposal to install 50 solar-powered LED streetlights along Mirpur Road 1-10 to reduce electricity costs and improve safety.', tags: ['Infrastructure', 'Energy', 'Safety'] },
-  { id: 2, title: 'Create dedicated cycling lanes in Dhanmondi', author: 'Salma', date: '2026-06-08', votes: 278, comments: 31, desc: 'Requesting dedicated cycling lanes along Dhanmondi Lake road to encourage eco-friendly transportation and reduce traffic.', tags: ['Transport', 'Environment'] },
-  { id: 3, title: 'Launch weekly waste collection schedule', author: 'Kamal', date: '2026-06-05', votes: 195, comments: 18, desc: 'A consistent, transparent waste collection schedule for each ward to reduce garbage overflow issues across the city.', tags: ['Sanitation', 'Planning'] },
-  { id: 4, title: 'Improve drainage before monsoon season', author: 'Nasreen', date: '2026-05-28', votes: 156, comments: 42, desc: 'Urgent proposal to clean and upgrade drainage canals across Dhaka before the June monsoon season begins.', tags: ['Drainage', 'Emergency'] },
-]
+const proposals = ref<any[]>([])
+const loading = ref(true)
+const authStore = useAuthStore()
+const toast = useToastStore()
+const router = useRouter()
+
+async function fetchProposals() {
+  loading.value = true
+  try {
+    const res = await api.get('/proposals')
+    proposals.value = res.data
+  } catch { proposals.value = [] }
+  finally { loading.value = false }
+}
+
+async function handleVote(p: any) {
+  if (!authStore.isLoggedIn) {
+    toast.show('Please log in to vote', 'info')
+    router.push('/login')
+    return
+  }
+  try {
+    const res = await api.post(`/proposals/${p.id || p._id}/vote`)
+    p.votes = res.data.votes
+    p.voted = res.data.voted
+  } catch { toast.show('Failed to vote', 'error') }
+}
+
+onMounted(() => fetchProposals())
 </script>
 
 <style scoped>
@@ -57,7 +86,6 @@ const proposals = [
 .tab-btn { padding: .5rem 1rem; border-radius: var(--radius-md); border: 1.5px solid var(--color-border); background: var(--color-surface-2); font-size: .875rem; font-weight: 500; color: var(--color-text-muted); cursor: pointer; transition: all var(--transition-fast); }
 .tab-btn.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
 .proposals-list { display: flex; flex-direction: column; gap: 1rem; }
-.proposal-item { }
 .proposal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: .75rem; }
 .proposal-header h3 { font-size: 1rem; font-weight: 700; margin-bottom: .25rem; }
 .proposal-meta { font-size: .8rem; color: var(--color-text-muted); }
@@ -65,4 +93,6 @@ const proposals = [
 .vote-pill:hover { background: var(--color-primary); color: #fff; }
 .proposal-desc { font-size: .875rem; color: var(--color-text-muted); margin-bottom: .875rem; line-height: 1.6; }
 .proposal-tags { display: flex; gap: .375rem; flex-wrap: wrap; }
+.loading-state { text-align: center; padding: 3rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.loading-state p { color: var(--color-text-muted); }
 </style>

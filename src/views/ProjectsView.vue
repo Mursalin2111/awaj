@@ -17,11 +17,12 @@
       </div>
       <!-- Filter -->
       <div class="proj-filter">
-        <button v-for="f in filters" :key="f" :class="['filter-btn', { active: activeFilter === f }]" @click="activeFilter = f">{{ f }}</button>
+        <button v-for="f in filters" :key="f" :class="['filter-btn', { active: activeFilter === f }]" @click="activeFilter = f; fetchProjects()">{{ f }}</button>
       </div>
+      <div v-if="loading" class="loading-state"><span class="spinner"></span><p>Loading projects...</p></div>
       <!-- Projects -->
-      <div class="proj-grid">
-        <div class="project-card card card-body" v-for="p in filteredProjects" :key="p.id">
+      <div class="proj-grid" v-else>
+        <div class="project-card card card-body" v-for="p in projects" :key="p.id">
           <div class="proj-header">
             <span :class="['badge', p.statusClass]">{{ p.status }}</span>
             <span class="proj-deadline">📅 {{ p.deadline }}</span>
@@ -45,7 +46,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
+import api from '../services/api'
+
 const activeFilter = ref('All')
 const filters = ['All', 'In Progress', 'Planning', 'Completed']
 const stats = [
@@ -54,15 +57,19 @@ const stats = [
   { val: '6', label: 'Completed', color: 'var(--color-info)' },
   { val: '67%', label: 'Avg Progress', color: 'var(--color-accent)' },
 ]
-const projects = [
-  { id: 1, name: 'Mirpur Road Resurfacing Phase II', owner: 'DNCC Road Division', status: 'In Progress', statusClass: 'badge-success', progress: 72, deadline: '2026-09-30', allocated: '৳2.4Cr', spent: '৳1.7Cr', category: 'In Progress' },
-  { id: 2, name: 'Gulshan Drainage Canal Upgrade', owner: 'WASA Dhaka', status: 'Planning', statusClass: 'badge-info', progress: 18, deadline: '2026-12-31', allocated: '৳5.1Cr', spent: '৳0.9Cr', category: 'Planning' },
-  { id: 3, name: 'Dhanmondi Lake Revitalization', owner: 'DNCC Parks', status: 'Completed', statusClass: 'badge-neutral', progress: 100, deadline: '2026-04-15', allocated: '৳1.2Cr', spent: '৳1.18Cr', category: 'Completed' },
-  { id: 4, name: 'Ramna Park Solar Lighting', owner: 'DNCC Energy', status: 'In Progress', statusClass: 'badge-success', progress: 55, deadline: '2026-08-15', allocated: '৳0.8Cr', spent: '৳0.44Cr', category: 'In Progress' },
-  { id: 5, name: 'Old Dhaka Drainage Network', owner: 'DSCC Engineering', status: 'Planning', statusClass: 'badge-info', progress: 8, deadline: '2027-03-01', allocated: '৳8.7Cr', spent: '৳0.7Cr', category: 'Planning' },
-  { id: 6, name: 'Mohakhali Flyover Repair', owner: 'RHD Dhaka', status: 'Completed', statusClass: 'badge-neutral', progress: 100, deadline: '2026-03-01', allocated: '৳3.5Cr', spent: '৳3.48Cr', category: 'Completed' },
-]
-const filteredProjects = computed(() => activeFilter.value === 'All' ? projects : projects.filter(p => p.category === activeFilter.value))
+const projects = ref<any[]>([])
+const loading = ref(true)
+
+async function fetchProjects() {
+  loading.value = true
+  try {
+    const res = await api.get('/projects', { params: { filter: activeFilter.value } })
+    projects.value = res.data
+  } catch { projects.value = [] }
+  finally { loading.value = false }
+}
+
+onMounted(() => fetchProjects())
 </script>
 
 <style scoped>
@@ -90,4 +97,6 @@ const filteredProjects = computed(() => activeFilter.value === 'All' ? projects 
 .prog-fill { height: 100%; background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light)); border-radius: var(--radius-full); transition: width .6s ease; }
 .prog-pct { font-size: .8rem; font-weight: 700; color: var(--color-primary); min-width: 36px; text-align: right; }
 .proj-budget { display: flex; justify-content: space-between; font-size: .8rem; color: var(--color-text-muted); }
+.loading-state { text-align: center; padding: 3rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.loading-state p { color: var(--color-text-muted); }
 </style>

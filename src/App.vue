@@ -39,6 +39,7 @@ onMounted(() => appStore.initTheme())
 .main-content {
   flex: 1;
   width: 100%;
+  padding-top: 80px;
 }
 
 /* Page transition */

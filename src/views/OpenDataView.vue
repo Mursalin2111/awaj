@@ -1,14 +1,11 @@
 <template>
   <div class="page-layout">
-    <div class="page-hero">
-      <div class="container">
-        <span class="badge badge-primary">📂 Transparency</span>
-        <h1>Open Data Portal</h1>
-        <p>Access civic data and research datasets under CC BY 4.0 license.</p>
-      </div>
-    </div>
+    <div class="page-hero"><div class="container">
+      <span class="badge badge-primary">📂 Transparency</span>
+      <h1>Open Data Portal</h1>
+      <p>Access civic data and research datasets under CC BY 4.0 license.</p>
+    </div></div>
     <div class="container page-body">
-      <!-- Tabs -->
       <div class="od-tabs">
         <button v-for="t in tabs" :key="t.key" :class="['tab-btn', { active: activeTab === t.key }]" @click="activeTab = t.key">{{ t.label }}</button>
       </div>
@@ -16,7 +13,8 @@
       <!-- Stats tab -->
       <div v-if="activeTab === 'stats'">
         <h2 class="od-section-title">Platform Statistics</h2>
-        <div class="stats-grid">
+        <div v-if="loadingStats" class="loading-state"><span class="spinner"></span></div>
+        <div class="stats-grid" v-else>
           <div class="stat-box card card-body" v-for="s in platformStats" :key="s.label">
             <span class="stat-box-icon">{{ s.icon }}</span>
             <span class="stat-box-num">{{ s.val }}</span>
@@ -31,7 +29,8 @@
           <h2 class="od-section-title">Top Concerns by Votes</h2>
           <button class="btn btn-outline btn-sm" @click="downloadJson">⬇ Download JSON</button>
         </div>
-        <div class="od-table">
+        <div v-if="loadingConcerns" class="loading-state"><span class="spinner"></span></div>
+        <div class="od-table" v-else>
           <table>
             <thead><tr><th>Title</th><th>Category</th><th>Status</th><th>Votes</th></tr></thead>
             <tbody>
@@ -67,33 +66,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useConcernsStore } from '../stores'
-
-const store = useConcernsStore()
-const concerns = store.concerns.slice().sort((a, b) => b.votes - a.votes).slice(0, 8)
+import { ref, onMounted } from 'vue'
+import api from '../services/api'
 
 const activeTab = ref('stats')
-const tabs = [
-  { key: 'stats', label: '📊 Stats' },
-  { key: 'concerns', label: '📋 Concerns' },
-  { key: 'api', label: '🔌 API Docs' },
-]
-const platformStats = [
-  { icon: '⚠️', val: '1,247', label: 'Total Concerns' },
-  { icon: '💬', val: '384', label: 'Proposals' },
-  { icon: '🔬', val: '56', label: 'Research Problems' },
-  { icon: '🏆', val: '128', label: 'Awards Given' },
-  { icon: '👍', val: '8.4', label: 'Avg Concern Votes' },
-  { icon: '✅', val: '67%', label: 'Resolution Rate' },
-]
+const tabs = [{ key: 'stats', label: '📊 Stats' },{ key: 'concerns', label: '📋 Concerns' },{ key: 'api', label: '🔌 API Docs' }]
+const platformStats = ref<any[]>([])
+const concerns = ref<any[]>([])
+const loadingStats = ref(true)
+const loadingConcerns = ref(true)
+
 const endpoints = [
   { method: 'GET', path: '/api/concerns', desc: 'List all concerns' },
   { method: 'GET', path: '/api/concerns/:id', desc: 'Get a specific concern' },
   { method: 'POST', path: '/api/concerns', desc: 'Create a new concern' },
   { method: 'GET', path: '/api/proposals', desc: 'List proposals' },
-  { method: 'GET', path: '/api/open-data', desc: 'Full dataset (CC-BY 4.0)' },
-  { method: 'GET', path: '/api/statistics', desc: 'Platform statistics' },
+  { method: 'GET', path: '/api/open-data/stats', desc: 'Platform statistics' },
+  { method: 'GET', path: '/api/open-data/concerns', desc: 'Full dataset (CC-BY 4.0)' },
 ]
 
 function statusBadge(s: string) {
@@ -101,10 +90,17 @@ function statusBadge(s: string) {
 }
 
 function downloadJson() {
-  const data = JSON.stringify(concerns, null, 2)
+  const data = JSON.stringify(concerns.value, null, 2)
   const blob = new Blob([data], { type: 'application/json' })
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'awaz-concerns.json'; a.click()
 }
+
+onMounted(async () => {
+  try { const r = await api.get('/open-data/stats'); platformStats.value = r.data } catch {}
+  finally { loadingStats.value = false }
+  try { const r = await api.get('/open-data/concerns'); concerns.value = r.data } catch {}
+  finally { loadingConcerns.value = false }
+})
 </script>
 
 <style scoped>
@@ -118,21 +114,18 @@ function downloadJson() {
 .od-section-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 1.25rem; }
 .od-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
 .od-header .od-section-title { margin-bottom: 0; }
-
 .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 @media (max-width: 640px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
 .stat-box { text-align: center; }
 .stat-box-icon { font-size: 1.5rem; display: block; margin-bottom: .375rem; }
 .stat-box-num { display: block; font-size: 1.75rem; font-weight: 800; color: var(--color-primary); }
 .stat-box-label { display: block; font-size: .8rem; color: var(--color-text-muted); margin-top: .25rem; }
-
 .od-table { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .875rem; }
 th { text-align: left; padding: .75rem 1rem; font-size: .75rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1.5px solid var(--color-border); }
 td { padding: .875rem 1rem; border-bottom: 1px solid var(--color-border-light); vertical-align: middle; }
 tr:hover td { background: var(--color-surface-2); }
 .votes-cell { font-weight: 700; color: var(--color-primary); }
-
 .api-docs h4 { margin-block: 1rem .75rem; font-size: 1rem; }
 .api-label { font-size: .875rem; color: var(--color-text-muted); margin-bottom: .375rem; }
 .endpoints { display: flex; flex-direction: column; gap: .625rem; }
@@ -144,4 +137,5 @@ tr:hover td { background: var(--color-surface-2); }
 [data-theme="dark"] .method.post { background: #1e3a5f; color: #60a5fa; }
 code { font-size: .8rem; font-family: monospace; color: var(--color-primary); }
 .ep-desc { font-size: .8rem; color: var(--color-text-muted); }
+.loading-state { text-align: center; padding: 2rem; }
 </style>

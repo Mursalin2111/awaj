@@ -11,7 +11,7 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'home', component: HomeView },
     { path: '/concerns', name: 'concerns', component: () => import('../views/ConcernsView.vue') },
-    { path: '/concerns/submit', name: 'submit', component: () => import('../views/SubmitView.vue') },
+    { path: '/concerns/submit', name: 'submit', component: () => import('../views/SubmitView.vue'), meta: { requiresAuth: true } },
     { path: '/concerns/:id', name: 'concern-detail', component: () => import('../views/ConcernDetailView.vue') },
     { path: '/forum', name: 'forum', component: () => import('../views/ForumView.vue') },
     { path: '/projects', name: 'projects', component: () => import('../views/ProjectsView.vue') },
@@ -24,6 +24,17 @@ const router = createRouter({
     { path: '/login', name: 'login', component: () => import('../views/LoginView.vue') },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('../views/NotFoundView.vue') },
   ],
+})
+
+// Auth guard
+router.beforeEach((to, _from, next) => {
+  if (to.meta.requiresAuth) {
+    const token = localStorage.getItem('awaj-token')
+    if (!token) {
+      return next({ name: 'login', query: { redirect: to.fullPath } })
+    }
+  }
+  next()
 })
 
 export default router
