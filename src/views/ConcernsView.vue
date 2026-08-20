@@ -72,7 +72,7 @@
               </div>
               <RouterLink :to="`/concerns/${c.id}`" class="concern-title">{{ c.title }}</RouterLink>
               <div v-if="c.photos && c.photos.length > 0" class="card-photo-preview">
-                <img :src="c.photos[0]" alt="Concern thumbnail" />
+                <img :src="c.photos[0]" alt="Concern thumbnail" @error="(e) => ((e.target as HTMLElement).style.display = 'none')" />
                 <span v-if="c.photos.length > 1" class="photo-count-badge">📷 +{{ c.photos.length - 1 }}</span>
               </div>
               <p class="concern-desc">{{ c.description }}</p>

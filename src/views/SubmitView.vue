@@ -81,14 +81,14 @@
           <!-- Photos Upload Section -->
           <div class="form-group">
             <div class="photo-header">
-              <label class="form-label">Attach Photos (optional)</label>
-              <span class="photo-count">{{ photos.length }}/4 photos</span>
+              <label class="form-label">Attach Photos — Powered by Supabase Storage (optional)</label>
+              <span class="photo-count">{{ selectedPhotos.length }}/4 photos</span>
             </div>
             
             <input
               ref="fileInput"
               type="file"
-              accept="image/png, image/jpeg, image/webp"
+              accept="image/png, image/jpeg, image/webp, image/gif"
               multiple
               class="hidden-file-input"
               @change="handleFileChange"
@@ -96,7 +96,7 @@
 
             <!-- Dropzone -->
             <div
-              v-if="photos.length < 4"
+              v-if="selectedPhotos.length < 4"
               class="photo-dropzone"
               @dragover.prevent
               @dragenter.prevent
@@ -105,15 +105,15 @@
             >
               <span class="upload-icon">📷</span>
               <div class="upload-text">
-                <p class="upload-title"><strong>Click to upload photos</strong> or drag & drop</p>
-                <p class="upload-sub">Supports JPG, PNG, WEBP (Max 4 photos)</p>
+                <p class="upload-title"><strong>Click to select photos</strong> or drag & drop</p>
+                <p class="upload-sub">Supports JPG, PNG, WEBP, GIF (Max 5MB per file, up to 4 photos)</p>
               </div>
             </div>
 
             <!-- Image Thumbnails Grid -->
-            <div v-if="photos.length > 0" class="photo-preview-grid">
-              <div v-for="(img, idx) in photos" :key="idx" class="photo-thumb-card">
-                <img :src="img" alt="Concern photo preview" />
+            <div v-if="selectedPhotos.length > 0" class="photo-preview-grid">
+              <div v-for="(img, idx) in selectedPhotos" :key="idx" class="photo-thumb-card">
+                <img :src="img.previewUrl" alt="Concern photo preview" />
                 <button type="button" class="remove-photo-btn" @click.stop="removePhoto(idx)" title="Remove image">
                   ✕
                 </button>
@@ -122,7 +122,13 @@
             </div>
 
             <div v-if="processingPhotos" class="processing-hint">
-              <span class="spinner"></span> Processing image files...
+              <span class="spinner"></span> Validating image files...
+            </div>
+
+            <!-- Upload Error Alert -->
+            <div v-if="uploadError" class="upload-error-msg">
+              <span>⚠️</span>
+              <p>{{ uploadError }}</p>
             </div>
           </div>
 
@@ -134,6 +140,7 @@
           <!-- Submit -->
           <button type="submit" class="btn btn-primary btn-lg submit-btn" :disabled="submitting || processingPhotos || !authStore.isLoggedIn" id="submit-btn">
             <span v-if="submitting" class="spinner"></span>
+            <span v-if="submitting">{{ submittingStatus || 'Submitting...' }}</span>
             <span v-else>Submit Concern</span>
           </button>
 
@@ -141,7 +148,7 @@
           <Transition name="fade">
             <div class="success-msg" v-if="submitted">
               <span>✅</span>
-              <p>Concern submitted successfully! <RouterLink to="/concerns">View all concerns</RouterLink></p>
+              <p>Concern submitted successfully with Supabase Storage evidence photo! <RouterLink to="/concerns">View all concerns</RouterLink></p>
             </div>
           </Transition>
         </form>
@@ -174,27 +181,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useConcernsStore } from '../stores'
 import { useAuthStore } from '../stores/auth'
 import { useToastStore } from '../stores/toast'
 import api from '../services/api'
+import {
+  uploadMultipleConcernImages,
+  validateImageFile,
+  MAX_FILE_SIZE_MB,
+} from '../services/storageService'
+
+interface PhotoItem {
+  file: File
+  previewUrl: string
+}
 
 const store = useConcernsStore()
 const authStore = useAuthStore()
 const toast = useToastStore()
 
-const categories = ['Roads & Potholes', 'Streetlights', 'Water & Drainage', 'Waste & Sanitation', 'Public Safety', 'Parks & Spaces']
+const categories = [
+  'Roads & Potholes',
+  'Streetlights',
+  'Water & Drainage',
+  'Waste & Sanitation',
+  'Public Safety',
+  'Parks & Spaces',
+]
 const quickLocations = ['Mirpur 10', 'Dhanmondi 27', 'Gulshan 1', 'Uttara Sec 3', 'Farmgate', 'Mohakhali']
 
 const form = reactive({ title: '', category: '', description: '', location: '' })
-const photos = ref<string[]>([])
+
+// File upload states
+const selectedPhotos = ref<PhotoItem[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
 const processingPhotos = ref(false)
 
 const submitting = ref(false)
+const submittingStatus = ref('')
+const uploadError = ref('')
 const submitted = ref(false)
+
 const gpsLoading = ref(false)
 const gpsStatus = ref('')
 const gpsSuccess = ref(false)
@@ -204,13 +233,19 @@ function triggerFileInput() {
 }
 
 function removePhoto(index: number) {
-  photos.value.splice(index, 1)
+  const item = selectedPhotos.value[index]
+  if (item && item.previewUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(item.previewUrl)
+  }
+  selectedPhotos.value.splice(index, 1)
+  uploadError.value = ''
 }
 
 function handleFileChange(event: Event) {
   const target = event.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
     processFiles(Array.from(target.files))
+    target.value = '' // reset input
   }
 }
 
@@ -220,66 +255,42 @@ function handleDrop(event: DragEvent) {
   }
 }
 
-async function processFiles(files: File[]) {
-  const imageFiles = files.filter(f => f.type.startsWith('image/')).slice(0, 4 - photos.value.length)
-  if (imageFiles.length === 0) {
-    toast.show('Please select valid image files (JPG, PNG, WEBP)', 'error')
+function processFiles(files: File[]) {
+  uploadError.value = ''
+  processingPhotos.value = true
+
+  const remainingSlots = 4 - selectedPhotos.value.length
+  if (remainingSlots <= 0) {
+    toast.show('Maximum 4 photos allowed per concern report', 'error')
+    processingPhotos.value = false
     return
   }
 
-  processingPhotos.value = true
-  for (const file of imageFiles) {
-    try {
-      const base64 = await resizeAndCompressImage(file)
-      if (photos.value.length < 4) {
-        photos.value.push(base64)
-      }
-    } catch (e) {
-      console.error('Error processing image:', e)
-      toast.show('Failed to process image file', 'error')
+  const candidateFiles = files.slice(0, remainingSlots)
+
+  for (const file of candidateFiles) {
+    const validation = validateImageFile(file)
+    if (!validation.valid) {
+      uploadError.value = validation.error || 'Invalid file selected.'
+      toast.show(validation.error || 'Invalid file', 'error')
+      continue
     }
+
+    const previewUrl = URL.createObjectURL(file)
+    selectedPhotos.value.push({ file, previewUrl })
   }
+
   processingPhotos.value = false
 }
 
-function resizeAndCompressImage(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        const MAX_WIDTH = 1200
-        const MAX_HEIGHT = 1200
-        let width = img.width
-        let height = img.height
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width
-            width = MAX_WIDTH
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height
-            height = MAX_HEIGHT
-          }
-        }
-
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        ctx?.drawImage(img, 0, 0, width, height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
-        resolve(dataUrl)
-      }
-      img.onerror = reject
-      img.src = e.target?.result as string
+// Clean up object URLs on component unmount
+onUnmounted(() => {
+  selectedPhotos.value.forEach(item => {
+    if (item.previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(item.previewUrl)
     }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
   })
-}
+})
 
 async function detectLocation() {
   gpsLoading.value = true
@@ -295,7 +306,7 @@ async function detectLocation() {
       toast.show(`Location detected (${sourceName})!`, 'success')
     } catch {
       form.location = 'Mirpur 10, Dhaka'
-      gpsStatus.value = '✓ Mirpur 10, Dhaka'
+      gpsStatus.value = `✓ Mirpur 10, Dhaka`
       gpsSuccess.value = true
     } finally {
       gpsLoading.value = false
@@ -308,7 +319,6 @@ async function detectLocation() {
         applyGeocode(pos.coords.latitude, pos.coords.longitude, 'Real-time GPS')
       },
       () => {
-        // Fallback to server IP geocode seamlessly
         applyGeocode(undefined, undefined, 'Network IP')
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
@@ -320,18 +330,46 @@ async function detectLocation() {
 
 async function handleSubmit() {
   submitting.value = true
+  uploadError.value = ''
+  let uploadedImageUrls: string[] = []
+
   try {
+    // Step 1: Upload images to Supabase Storage if photos were selected
+    if (selectedPhotos.value.length > 0) {
+      submittingStatus.value = `Uploading ${selectedPhotos.value.length} evidence photo(s) to Supabase Storage...`
+      const filesToUpload = selectedPhotos.value.map(p => p.file)
+      const userId = authStore.user?.id || authStore.user?._id || 'citizen'
+
+      try {
+        uploadedImageUrls = await uploadMultipleConcernImages(filesToUpload, userId)
+      } catch (err: any) {
+        console.error('Supabase Storage Upload Error:', err)
+        uploadError.value = err.message || 'Failed to upload evidence photos to Supabase Storage.'
+        toast.show(uploadError.value, 'error')
+        submitting.value = false
+        return
+      }
+    }
+
+    // Step 2: Post concern with Supabase Storage image URLs to backend API
+    submittingStatus.value = 'Saving concern report...'
     await store.addConcern({
       title: form.title,
       description: form.description,
       category: form.category,
       location: form.location,
-      photos: photos.value,
+      photos: uploadedImageUrls,
     })
+
     submitted.value = true
-    toast.show('Concern submitted successfully with photos!', 'success')
+    toast.show('Concern submitted successfully with Supabase Storage evidence image(s)!', 'success')
+    
+    // Reset form
     Object.assign(form, { title: '', category: '', description: '', location: '' })
-    photos.value = []
+    selectedPhotos.value.forEach(item => {
+      if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl)
+    })
+    selectedPhotos.value = []
   } catch (error: any) {
     if (error.message === 'LOGIN_REQUIRED') {
       toast.show('Please log in to submit a concern', 'info')
@@ -340,6 +378,7 @@ async function handleSubmit() {
     }
   } finally {
     submitting.value = false
+    submittingStatus.value = ''
   }
 }
 </script>
@@ -465,6 +504,19 @@ async function handleSubmit() {
   font-size: .8rem;
   color: var(--color-primary);
   margin-top: .5rem;
+}
+
+.upload-error-msg {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  color: var(--color-danger);
+  padding: .65rem .875rem;
+  border-radius: var(--radius-md);
+  font-size: .82rem;
+  margin-top: .75rem;
 }
 
 .login-notice {

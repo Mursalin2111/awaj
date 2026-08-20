@@ -20,13 +20,31 @@
             <p>{{ concern.description }}</p>
           </div>
 
-          <!-- Photo Gallery -->
-          <div v-if="concern.photos && concern.photos.length > 0" class="detail-gallery">
-            <h3>📷 Attached Photos ({{ concern.photos.length }})</h3>
-            <div class="gallery-grid">
-              <div v-for="(photo, idx) in concern.photos" :key="idx" class="gallery-item" @click="activeModalPhoto = photo">
-                <img :src="photo" :alt="`Concern photo ${Number(idx) + 1}`" />
+          <!-- Photo Gallery (Supabase Storage Evidence Images) -->
+          <div class="detail-gallery">
+            <h3>📷 Evidence Photos ({{ concern.photos?.length || 0 }})</h3>
+            <div v-if="concern.photos && concern.photos.length > 0" class="gallery-grid">
+              <div
+                v-for="(photo, idx) in concern.photos"
+                :key="idx"
+                class="gallery-item"
+                @click="!brokenPhotos[idx] && (activeModalPhoto = photo)"
+              >
+                <img
+                  v-if="!brokenPhotos[idx]"
+                  :src="photo"
+                  :alt="`Evidence photo ${Number(idx) + 1}`"
+                  @error="handleImgError(idx)"
+                />
+                <div v-else class="broken-img-placeholder">
+                  <span>⚠️</span>
+                  <p>Image unavailable</p>
+                </div>
               </div>
+            </div>
+            <div v-else class="no-evidence-box">
+              <span>🖼️</span>
+              <p>No evidence photos attached to this concern report.</p>
             </div>
           </div>
 
@@ -163,6 +181,11 @@ const toast = useToastStore()
 const concern = ref<any>(null)
 const loading = ref(true)
 const activeModalPhoto = ref<string | null>(null)
+const brokenPhotos = ref<Record<number, boolean>>({})
+
+function handleImgError(index: number) {
+  brokenPhotos.value[index] = true
+}
 
 const authorityStatus = ref('submitted')
 const authorityNote = ref('')
@@ -306,9 +329,22 @@ onMounted(() => fetchConcern())
 .detail-gallery { margin-block: 1.5rem; }
 .detail-gallery h3 { font-size: 1rem; font-weight: 700; margin-bottom: .75rem; }
 .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
-.gallery-item { aspect-ratio: 4/3; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--color-border); cursor: pointer; transition: transform var(--transition-fast); }
+.gallery-item { aspect-ratio: 4/3; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--color-border); cursor: pointer; transition: transform var(--transition-fast); position: relative; background: var(--color-surface-2); }
 .gallery-item:hover { transform: scale(1.03); }
 .gallery-item img { width: 100%; height: 100%; object-fit: cover; }
+
+.broken-img-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; height: 100%; background: var(--color-surface-2); color: var(--color-text-muted);
+  font-size: .8rem; gap: .25rem; text-align: center; padding: .5rem;
+}
+
+.no-evidence-box {
+  display: flex; align-items: center; gap: .75rem;
+  padding: 1rem 1.25rem; border-radius: var(--radius-lg);
+  background: var(--color-surface-2); border: 1px dashed var(--color-border);
+  color: var(--color-text-muted); font-size: .875rem;
+}
 
 .lightbox-backdrop {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85);
