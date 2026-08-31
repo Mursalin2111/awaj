@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^2.19.0",
     "@supabase/supabase-js": "^2.112.3",
     "@vueuse/core": "^14.3.0",
     "axios": "^1.19.0",

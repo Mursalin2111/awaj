@@ -1,5 +1,6 @@
 const express = require('express');
 const https = require('https');
+const { GoogleGenAI } = require('@google/genai');
 const router = express.Router();
 const Concern = require('../models/Concern');
 const User = require('../models/User');
@@ -54,57 +55,33 @@ async function fetchLiveWeather() {
   return null;
 }
 
-// 2. Real-Time Web & Wikipedia Search Engine
+// 2. Real-Time Web & AI Search Engine
 async function searchWebRealtime(query) {
+  if (!process.env.GEMINI_API_KEY) {
+    return {
+      answer: "⚠️ Please set the GEMINI_API_KEY in the server/.env file to get AI responses. You can get one from Google AI Studio.",
+      citation: "System Configuration"
+    };
+  }
+
   try {
-    const cleanQuery = query.replace(/(what is|who is|tell me about|how to|where is|কি|কী|কার|কখন|কোথায়)/gi, '').trim() || query;
-
-    // Search Wikipedia English first
-    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanQuery)}&format=json`;
-    const searchData = await fetchJSON(searchUrl);
-    const firstResult = searchData?.query?.search?.[0];
-
-    if (firstResult && firstResult.title) {
-      const title = firstResult.title;
-      const summaryUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(title)}&format=json&redirects=1`;
-      const summaryData = await fetchJSON(summaryUrl);
-      const pages = summaryData?.query?.pages;
-      if (pages) {
-        const pageId = Object.keys(pages)[0];
-        if (pageId !== '-1' && pages[pageId].extract) {
-          const extractText = pages[pageId].extract.trim();
-          // Shorten long text nicely
-          const textSnippet = extractText.length > 600 ? extractText.slice(0, 600) + '...' : extractText;
-          return {
-            answer: `🌐 Real-Time Information for "${title}":\n\n${textSnippet}`,
-            citation: `Live Knowledge Base — Wikipedia (${title})`
-          };
-        }
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: `You are Awaz Real-Time AI Assistant. Please answer the following question helpfully and concisely in the language it was asked (e.g., Bangla or English). Ensure your answers are highly relevant and you use real-time information if necessary. Question: ${query}`,
+      config: {
+        tools: [{ googleSearch: {} }]
       }
-    }
+    });
 
-    // Try Bangla Wikipedia if English didn't return
-    const bnSearchUrl = `https://bn.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json`;
-    const bnSearchData = await fetchJSON(bnSearchUrl);
-    const bnResult = bnSearchData?.query?.search?.[0];
-    if (bnResult && bnResult.title) {
-      const bnTitle = bnResult.title;
-      const bnSummaryUrl = `https://bn.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(bnTitle)}&format=json&redirects=1`;
-      const bnSummaryData = await fetchJSON(bnSummaryUrl);
-      const pages = bnSummaryData?.query?.pages;
-      if (pages) {
-        const pageId = Object.keys(pages)[0];
-        if (pageId !== '-1' && pages[pageId].extract) {
-          const textSnippet = pages[pageId].extract.trim();
-          return {
-            answer: `🌐 বাস্তব-সময়ের তথ্য ("${bnTitle}"):\n\n${textSnippet}`,
-            citation: `বাংলা উইকিপিডিয়া লাইভ ডাটাবেজ (${bnTitle})`
-          };
-        }
-      }
+    if (response.text) {
+      return {
+        answer: response.text,
+        citation: 'Awaz Real-Time AI Assistant (Powered by Gemini)'
+      };
     }
   } catch (err) {
-    console.error('Web search error:', err);
+    console.error('Gemini error:', err);
   }
   return null;
 }

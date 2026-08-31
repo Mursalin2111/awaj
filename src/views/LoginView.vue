@@ -46,10 +46,10 @@
       <!-- Form: Citizen Email Code Login -->
       <form v-if="activeTab === 'citizen'" class="login-form" @submit.prevent="handleCitizenLogin">
         <div class="form-group" v-if="!codeSent">
-          <label class="form-label" for="email">Email Address</label>
+          <label class="form-label" for="email">Gmail Address</label>
           <div class="email-row">
             <span class="email-icon">✉️</span>
-            <input id="email" v-model="email" class="form-input" type="email" placeholder="you@example.com" required />
+            <input id="email" v-model="email" class="form-input" type="email" placeholder="you@gmail.com" required />
           </div>
         </div>
 
@@ -120,7 +120,6 @@
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useToastStore } from '../stores/toast'
 import { useAuthStore } from '../stores/auth'
 import api from '../services/api'
 
@@ -136,7 +135,6 @@ const success = ref(false)
 const errorMsg = ref('')
 const resendCooldown = ref(0)
 const router = useRouter()
-const toast = useToastStore()
 const authStore = useAuthStore()
 
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
@@ -161,7 +159,6 @@ async function handleCitizenLogin() {
       await api.post('/auth/send-code', { email: email.value })
       codeSent.value = true
       startCooldown()
-      toast.show(`Verification code sent to ${email.value}`, 'info')
     } else {
       const res = await api.post('/auth/verify-code', {
         email: email.value,
@@ -169,13 +166,11 @@ async function handleCitizenLogin() {
       })
       authStore.login(res.data.token, res.data.user)
       success.value = true
-      toast.show('Signed in successfully!', 'success')
       setTimeout(() => router.push('/concerns'), 1200)
     }
   } catch (error: any) {
     const msg = error.response?.data?.error || 'Something went wrong. Please try again.'
     errorMsg.value = msg
-    toast.show(msg, 'error')
   } finally {
     loading.value = false
   }
@@ -192,12 +187,10 @@ async function handleAuthorityLogin() {
     })
     authStore.login(res.data.token, res.data.user)
     success.value = true
-    toast.show('Signed in as Municipal Authority!', 'success')
     setTimeout(() => router.push('/concerns'), 1200)
   } catch (error: any) {
     const msg = error.response?.data?.error || 'Invalid Authority ID or password.'
     errorMsg.value = msg
-    toast.show(msg, 'error')
   } finally {
     loading.value = false
   }
@@ -209,7 +202,6 @@ async function resendCode() {
   try {
     await api.post('/auth/send-code', { email: email.value })
     startCooldown()
-    toast.show(`New code sent to ${email.value}`, 'info')
   } catch (error: any) {
     const msg = error.response?.data?.error || 'Failed to resend code.'
     errorMsg.value = msg

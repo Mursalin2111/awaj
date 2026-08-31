@@ -1,5 +1,7 @@
 <template>
   <div class="home">
+    <!-- Unique Interactive Awaz Canvas (Network & Soundwaves) -->
+    <canvas ref="interactiveCanvas" class="interactive-canvas" aria-hidden="true"></canvas>
 
     <!-- Hero Section -->
     <section class="hero grid-bg">
@@ -177,10 +179,174 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 
 const activeIdx = ref(-1)
+
+// --- Unique Interactive Canvas Animation (Awaz Theme) ---
+const interactiveCanvas = ref<HTMLCanvasElement | null>(null)
+let ctx: CanvasRenderingContext2D | null = null
+let rafId: number
+
+let mouseX = window.innerWidth / 2
+let mouseY = window.innerHeight / 2
+let targetX = mouseX
+let targetY = mouseY
+
+interface Particle { x: number; y: number; vx: number; vy: number; size: number }
+const particles: Particle[] = []
+
+interface Ripple { x: number; y: number; radius: number; opacity: number }
+let ripples: Ripple[] = []
+let lastRippleTime = 0
+
+function handleResize() {
+  if (interactiveCanvas.value) {
+    interactiveCanvas.value.width = window.innerWidth
+    interactiveCanvas.value.height = window.innerHeight
+  }
+}
+
+function initCanvas() {
+  if (!interactiveCanvas.value) return
+  const canvas = interactiveCanvas.value
+  ctx = canvas.getContext('2d')
+  
+  window.addEventListener('resize', handleResize)
+  handleResize()
+
+  // Initialize Particles (Representing Citizens/Community)
+  const numParticles = Math.floor(window.innerWidth / 18)
+  for (let i = 0; i < numParticles; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 1.2,
+      vy: (Math.random() - 0.5) * 1.2,
+      size: Math.random() * 2 + 0.5
+    })
+  }
+  animate()
+}
+
+function onMouseMove(e: MouseEvent) {
+  targetX = e.clientX
+  targetY = e.clientY
+  
+  // Create Soundwave Ripple on movement (Awaz concept)
+  const now = performance.now()
+  if (now - lastRippleTime > 90) {
+    const dist = Math.hypot(targetX - mouseX, targetY - mouseY)
+    if (dist > 15) {
+      ripples.push({ x: targetX, y: targetY, radius: 5, opacity: 0.8 })
+      lastRippleTime = now
+    }
+  }
+}
+
+function animate() {
+  if (!ctx || !interactiveCanvas.value) return
+  const canvas = interactiveCanvas.value
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  
+  // Smooth cursor easing
+  mouseX += (targetX - mouseX) * 0.12
+  mouseY += (targetY - mouseY) * 0.12
+
+  // 1. Draw Network Particles (Community connecting)
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i]
+    p.x += p.vx
+    p.y += p.vy
+    
+    // Wrap around edges
+    if (p.x < 0) p.x = canvas.width
+    if (p.x > canvas.width) p.x = 0
+    if (p.y < 0) p.y = canvas.height
+    if (p.y > canvas.height) p.y = 0
+
+    // Draw particle node
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(15, 118, 110, 0.5)'
+    ctx.fill()
+
+    // Connect node to cursor (Magnetic pull)
+    const dxMouse = p.x - mouseX
+    const dyMouse = p.y - mouseY
+    const distMouse = Math.hypot(dxMouse, dyMouse)
+    
+    if (distMouse < 180) {
+      ctx.beginPath()
+      ctx.moveTo(p.x, p.y)
+      ctx.lineTo(mouseX, mouseY)
+      ctx.strokeStyle = `rgba(15, 118, 110, ${0.4 * (1 - distMouse / 180)})`
+      ctx.lineWidth = 1
+      ctx.stroke()
+      
+      // Magnetic effect: nodes pull slightly towards cursor
+      p.x -= dxMouse * 0.012
+      p.y -= dyMouse * 0.012
+    }
+
+    // Connect node to nearby nodes
+    for (let j = i + 1; j < particles.length; j++) {
+      const p2 = particles[j]
+      const dist = Math.hypot(p.x - p2.x, p.y - p2.y)
+      if (dist < 100) {
+        ctx.beginPath()
+        ctx.moveTo(p.x, p.y)
+        ctx.lineTo(p2.x, p2.y)
+        ctx.strokeStyle = `rgba(15, 118, 110, ${0.15 * (1 - dist / 100)})`
+        ctx.lineWidth = 0.8
+        ctx.stroke()
+      }
+    }
+  }
+
+  // 2. Draw Soundwave Ripples (Echoing Voice)
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i]
+    r.radius += 1.5
+    r.opacity -= 0.015
+    
+    if (r.opacity <= 0) {
+      ripples.splice(i, 1)
+      continue
+    }
+    
+    ctx.beginPath()
+    ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(16, 185, 129, ${r.opacity})` // Accent green
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+  }
+
+  // 3. Draw Cursor Core Glow
+  const gradient = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, 150)
+  gradient.addColorStop(0, 'rgba(15, 118, 110, 0.25)')
+  gradient.addColorStop(1, 'rgba(15, 118, 110, 0)')
+  ctx.beginPath()
+  ctx.arc(mouseX, mouseY, 150, 0, Math.PI * 2)
+  ctx.fillStyle = gradient
+  ctx.fill()
+
+  rafId = requestAnimationFrame(animate)
+}
+
+onMounted(() => {
+  window.addEventListener('mousemove', onMouseMove)
+  initCanvas()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', onMouseMove)
+  window.removeEventListener('resize', handleResize)
+  cancelAnimationFrame(rafId)
+})
+// -----------------------------
 
 const features = [
   { icon: '📍', title: 'Pinpoint Issues', desc: 'Easily snap a photo and drop a GPS pin to report problems like broken streetlights, potholes, or waste management issues.' },
@@ -220,6 +386,18 @@ const faqs = [
 </script>
 
 <style scoped>
+/* ── Interactive Canvas ── */
+.interactive-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 99;
+  mix-blend-mode: screen;
+}
+
 /* ── Hero ── */
 .hero {
   position: relative;

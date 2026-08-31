@@ -12,6 +12,7 @@
     <SiteFooter />
     <BackToTop />
     <ToastContainer />
+    <NamePrompt />
   </div>
 </template>
 
@@ -22,6 +23,7 @@ import SiteHeader from './components/SiteHeader.vue'
 import SiteFooter from './components/SiteFooter.vue'
 import BackToTop from './components/BackToTop.vue'
 import ToastContainer from './components/ToastContainer.vue'
+import NamePrompt from './components/NamePrompt.vue'
 import { useAppStore } from './stores'
 
 const appStore = useAppStore()

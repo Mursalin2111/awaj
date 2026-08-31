@@ -35,13 +35,18 @@ router.post('/send-code', async (req, res) => {
     const isAuthority = lowerEmail.includes('authority') || lowerEmail.includes('admin') || lowerEmail.includes('gov.bd');
     const assignedRole = isAuthority ? 'authority' : 'citizen';
 
+    if (!isAuthority && !lowerEmail.endsWith('@gmail.com')) {
+      return res.status(400).json({ error: 'For reliable verification, please use a valid @gmail.com account.' });
+    }
+
+
     // Upsert user — create if doesn't exist
     await User.findOneAndUpdate(
       { email: lowerEmail },
       { 
         verificationCode: code, 
         codeExpiry,
-        ...(isAuthority ? { role: 'authority' } : {}) 
+        role: isAuthority ? 'authority' : 'citizen'
       },
       { upsert: true, new: true }
     );
@@ -49,24 +54,22 @@ router.post('/send-code', async (req, res) => {
     // Send real email via SMTP
     const transporter = createTransporter();
     await transporter.sendMail({
-      from: `"Awaz — The Voice of People" <${process.env.SMTP_EMAIL}>`,
+      from: `Awaz Platform <${process.env.SMTP_EMAIL}>`,
       to: email,
-      subject: 'Your Awaz Verification Code',
+      subject: `Awaz Login Code: ${code}`,
+      text: `Your Awaz verification code is: ${code}\n\nThis code expires in 10 minutes.`,
       html: `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
-          <h2 style="color: #0f766e; margin-bottom: 8px;">🛡️ Awaz Verification</h2>
-          <p style="color: #475569; font-size: 15px;">Your one-time verification code is:</p>
-          <div style="background: #0f766e; color: #fff; font-size: 32px; font-weight: 800; letter-spacing: 8px; text-align: center; padding: 20px; border-radius: 8px; margin: 16px 0;">
-            ${code}
-          </div>
-          <p style="color: #64748b; font-size: 13px;">This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.</p>
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="color: #94a3b8; font-size: 12px;">Awaz — The Voice of People · Dhaka, Bangladesh</p>
+        <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 20px;">
+          <h2>Awaz Verification</h2>
+          <p>Your login code is:</p>
+          <h1 style="background: #eee; padding: 10px; text-align: center; letter-spacing: 5px;">${code}</h1>
+          <p style="color: #666; font-size: 12px;">This code expires in 10 minutes. If you didn't request this, safely ignore.</p>
         </div>
       `,
     });
 
-    console.log(`✉️ Verification email successfully sent to ${email}`);
+    console.log(`✉️ Verification email sent to ${email}`);
+    console.log(`🔑 [DEVELOPMENT FALLBACK] Code for ${email} is: ${code}`);
     res.json({ success: true, message: `Verification code sent to ${email}` });
   } catch (error) {
     console.error('Send code SMTP error:', error);
@@ -135,6 +138,30 @@ router.get('/me', auth, async (req, res) => {
       role: req.user.role,
     },
   });
+});
+
+// PUT /api/auth/profile
+router.put('/profile', auth, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ error: 'Name cannot be empty' });
+    }
+    req.user.name = name.trim();
+    await req.user.save();
+    res.json({
+      success: true,
+      user: {
+        id: req.user._id,
+        email: req.user.email,
+        name: req.user.name,
+        role: req.user.role,
+      },
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
 });
 
 // Ensure default Authority user account exists in DB
